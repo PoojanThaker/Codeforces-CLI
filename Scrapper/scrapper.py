@@ -29,7 +29,7 @@ class CodeforcesScrapper(Scrapper):
         pass
 
     def get_problem_id(self, url):
-        return url.split('/')[-1:-2].join('_')
+        return '_'.join(url.split('/')[-2:])
 
     def _process_div(self, divs):
         processed_div = {}
