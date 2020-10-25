@@ -1,6 +1,6 @@
 from Scrapper.utils import Problem
 import json
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from Scrapper.constants import CODEFORCES
 import requests
 
@@ -34,6 +34,8 @@ class CodeforcesScrapper(Scrapper):
     def _process_div(self, divs):
         processed_div = {}
         for num, div in enumerate(divs):
+            if isinstance(div, NavigableString):
+                continue
             key = ''.join(['line', str(num)])
             processed_div.update({key: str(div.text)})
         images = divs.findAll("img")
