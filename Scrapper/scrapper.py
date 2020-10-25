@@ -1,7 +1,8 @@
 from Scrapper.utils import Problem
 import json
 from bs4 import BeautifulSoup, NavigableString
-from Scrapper.constants import CODEFORCES
+import csv
+from Scrapper.constants import *
 import requests
 
 
@@ -9,24 +10,52 @@ class Scrapper:
     """
     Abstract scrapper class
     """
+    def __init__(self, scraped_problems_file):
+        self.scraped_problems_file = scraped_problems_file
 
     def fetch_urls(self, batch_mode):
-        raise NotImplementedError("The method not implemented")
+        raise NotImplementedError("The method is not implemented")
 
     def url_to_problem(self, url):
-        raise NotImplementedError("The method not implemented")
+        raise NotImplementedError("The method is not implemented")
 
-    def sync_problems(self, batch_mode=True):
-        batches = self.fetch_urls(batch_mode)
-        for batch in batches:
-            for url in batch:
-                self.url_to_problem(url)
+    def sync_problems(self):
+        scrapped_problems = {}
+        with open(self.scraped_problems_file, 'rt') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                scrapped_problems.update({str(row[0]): True})
+        urls = self.fetch_urls(scrapped_problems)
+        for url in urls:
+            problem = self.url_to_problem(url)
+            # TODO varshil db.put_problem(problem)
 
 
 class CodeforcesScrapper(Scrapper):
-    def fetch_urls(self, batch_mode):
-        # TODO by spj
-        pass
+
+    def __init__(self):
+        super().__init__(CODEFORCES_SCRAPED_PROBLEMS_FILE)
+
+    def fetch_urls(self, scrapped_problems):
+        urls = []
+        page = requests.get(CODEFORCES_PROBLEMSET_URL)
+        soup = BeautifulSoup(page.content, 'html5lib')
+        pagination_div = soup.find('div', {'class': 'pagination'})
+        total_pages = int(pagination_div.findAll('li')[-2].find('span')['pageindex'])
+        for page in range(total_pages):
+            page = requests.get(CODEFORCES_PROBLEMSET_URL+'/page/'+str(page+1))
+            soup = BeautifulSoup(page.content, 'html5lib')
+            table = soup.find('table', {'class': 'problems'})
+            rows = table.find_all('tr')
+            for row in rows[1:]:
+                problem_id_div = row.find('td', {'class': 'id'})
+                problem_id = problem_id_div.find('a').text.replace(' ', '').replace('\n', '')
+                if problem_id not in scrapped_problems:
+                    problem_url = problem_id_div.find('a')['href'].replace(' ', '').replace('\n', '')
+                    urls.append(CODEFORCES_URL + problem_url)
+                    print(problem_id_div.find('a').text.replace(' ', '').replace('\n', ''))
+                    print(problem_id_div.find('a')['href'].replace(' ', '').replace('\n', ''))
+        return urls
 
     def get_problem_id(self, url):
         return '_'.join(url.split('/')[-2:])
